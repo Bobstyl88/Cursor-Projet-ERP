@@ -1,0 +1,25 @@
+{
+  "name": "saas-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Modular SaaS ERP — multi-tenant, international, production-grade",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "yarn workspace @erp/backend dev",
+    "dev:frontend": "yarn workspace @erp/frontend dev",
+    "build:backend": "yarn workspace @erp/backend build",
+    "build:frontend": "yarn workspace @erp/frontend build",
+    "lint": "yarn workspaces run lint",
+    "test": "yarn workspaces run test",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "yarn": ">=1.22.0"
+  }
+}
