@@ -11,15 +11,11 @@ import { TenantGuard } from './common/guards/tenant.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { TenantContextInterceptor } from './common/interceptors/tenant-context.interceptor';
 
-const featureModules: any[] = [];
-
-try {
-  /* Feature modules are registered here as they are built out.
-     Each module is self-contained and declares its own controllers,
-     services, and providers. Stub imports keep the app bootable
-     before the modules exist on disk. */
-}
-catch { /* ignored */ }
+import { AuthModule } from './modules/auth/auth.module';
+import { TenantModule } from './modules/tenant/tenant.module';
+import { UserModule } from './modules/user/user.module';
+import { RoleModule } from './modules/role/role.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -36,7 +32,11 @@ catch { /* ignored */ }
 
     DatabaseModule,
 
-    ...featureModules,
+    AuthModule,
+    TenantModule,
+    UserModule,
+    RoleModule,
+    AuditModule,
   ],
   providers: [
     {
