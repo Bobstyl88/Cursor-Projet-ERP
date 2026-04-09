@@ -1,0 +1,31 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service';
+
+@Injectable()
+export class TenantService {
+  constructor(private prisma: PrismaService) {}
+
+  async findById(id: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return tenant;
+  }
+
+  async findBySlug(slug: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { slug } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return tenant;
+  }
+
+  async updateSettings(tenantId: string, settings: Record<string, any>) {
+    return this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: { settings },
+    });
+  }
+
+  async getSettings(tenantId: string) {
+    const tenant = await this.findById(tenantId);
+    return tenant.settings;
+  }
+}

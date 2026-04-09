@@ -1,0 +1,42 @@
+export const DOCUMENT_STATUSES = {
+  QUOTATION: ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED'] as const,
+  SALES_ORDER: ['DRAFT', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const,
+  PURCHASE_ORDER: ['DRAFT', 'SENT', 'CONFIRMED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'] as const,
+  INVOICE: ['DRAFT', 'SENT', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED'] as const,
+  JOURNAL_ENTRY: ['DRAFT', 'POSTED', 'CANCELLED'] as const,
+} as const;
+
+export const VALID_STATUS_TRANSITIONS: Record<string, Record<string, readonly string[]>> = {
+  QUOTATION: {
+    DRAFT: ['SENT'],
+    SENT: ['ACCEPTED', 'REJECTED', 'EXPIRED'],
+    ACCEPTED: ['CONVERTED'],
+  },
+  SALES_ORDER: {
+    DRAFT: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['PROCESSING', 'CANCELLED'],
+    PROCESSING: ['SHIPPED', 'CANCELLED'],
+    SHIPPED: ['DELIVERED'],
+  },
+  PURCHASE_ORDER: {
+    DRAFT: ['SENT', 'CANCELLED'],
+    SENT: ['CONFIRMED', 'CANCELLED'],
+    CONFIRMED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
+    PARTIALLY_RECEIVED: ['RECEIVED'],
+  },
+  INVOICE: {
+    DRAFT: ['SENT', 'CANCELLED'],
+    SENT: ['PARTIALLY_PAID', 'PAID', 'OVERDUE', 'CANCELLED'],
+    PARTIALLY_PAID: ['PAID', 'OVERDUE'],
+    OVERDUE: ['PARTIALLY_PAID', 'PAID'],
+  },
+};
+
+export const ACCOUNT_TYPES = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+export const TAX_TYPES = ['VAT', 'GST', 'SALES_TAX', 'WITHHOLDING', 'EXEMPT'] as const;
+export type TaxType = (typeof TAX_TYPES)[number];
+
+export const PAYMENT_METHODS = ['BANK_TRANSFER', 'CASH', 'CHECK', 'CREDIT_CARD', 'OTHER'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

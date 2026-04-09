@@ -1,0 +1,688 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE: Multi-Tenant
+// ============================================================================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  domain    String?  @unique
+  plan      Plan     @default(STARTER)
+  status    TenantStatus @default(ACTIVE)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  roles           Role[]
+  contacts        Contact[]
+  products        Product[]
+  warehouses      Warehouse[]
+  quotations      Quotation[]
+  salesOrders     SalesOrder[]
+  purchaseOrders  PurchaseOrder[]
+  invoices        Invoice[]
+  journalEntries  JournalEntry[]
+  accounts        ChartOfAccount[]
+  taxRules        TaxRule[]
+  currencies      TenantCurrency[]
+  auditLogs       AuditLog[]
+
+  @@map("tenants")
+}
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+// ============================================================================
+// CORE: Users & Roles (RBAC)
+// ============================================================================
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  email        String
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles    UserRole[]
+  auditLogs    AuditLog[]
+  quotations   Quotation[]
+  salesOrders  SalesOrder[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String
+  description String?
+  permissions Json     @default("[]")
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles UserRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ============================================================================
+// CORE: Audit Log
+// ============================================================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  userId     String?  @map("user_id")
+  action     String
+  entity     String
+  entityId   String   @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, entity, entityId])
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// BUSINESS: Contacts (Clients & Suppliers)
+// ============================================================================
+
+model Contact {
+  id           String      @id @default(uuid())
+  tenantId     String      @map("tenant_id")
+  type         ContactType
+  companyName  String?     @map("company_name")
+  firstName    String?     @map("first_name")
+  lastName     String?     @map("last_name")
+  email        String?
+  phone        String?
+  vatNumber    String?     @map("vat_number")
+  address      Json?
+  countryCode  String?     @map("country_code")
+  currencyCode String      @default("EUR") @map("currency_code")
+  isActive     Boolean     @default(true) @map("is_active")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quotations      Quotation[]
+  salesOrders     SalesOrder[]
+  purchaseOrders  PurchaseOrder[]
+  invoices        Invoice[]
+
+  @@index([tenantId, type])
+  @@index([tenantId, email])
+  @@map("contacts")
+}
+
+enum ContactType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+// ============================================================================
+// BUSINESS: Products & Inventory
+// ============================================================================
+
+model Product {
+  id           String      @id @default(uuid())
+  tenantId     String      @map("tenant_id")
+  sku          String
+  name         String
+  description  String?
+  type         ProductType @default(STORABLE)
+  unitPrice    Decimal     @map("unit_price") @db.Decimal(15, 4)
+  costPrice    Decimal     @default(0) @map("cost_price") @db.Decimal(15, 4)
+  taxRuleId    String?     @map("tax_rule_id")
+  unit         String      @default("unit")
+  isActive     Boolean     @default(true) @map("is_active")
+  metadata     Json?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxRule             TaxRule?             @relation(fields: [taxRuleId], references: [id])
+  stockMovements      StockMovement[]
+  inventoryLevels     InventoryLevel[]
+  quotationLines      QuotationLine[]
+  salesOrderLines     SalesOrderLine[]
+  purchaseOrderLines  PurchaseOrderLine[]
+  invoiceLines        InvoiceLine[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@map("products")
+}
+
+enum ProductType {
+  STORABLE
+  CONSUMABLE
+  SERVICE
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  name      String
+  code      String
+  address   Json?
+  isDefault Boolean  @default(false) @map("is_default")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryLevels InventoryLevel[]
+  stockMovements  StockMovement[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("warehouses")
+}
+
+model InventoryLevel {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  warehouseId String   @map("warehouse_id")
+  quantity    Decimal  @default(0) @db.Decimal(15, 4)
+  reserved    Decimal  @default(0) @db.Decimal(15, 4)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+  @@map("inventory_levels")
+}
+
+model StockMovement {
+  id            String            @id @default(uuid())
+  tenantId      String            @map("tenant_id")
+  productId     String            @map("product_id")
+  warehouseId   String            @map("warehouse_id")
+  type          StockMovementType
+  quantity      Decimal           @db.Decimal(15, 4)
+  reference     String?
+  referenceId   String?           @map("reference_id")
+  notes         String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  product   Product   @relation(fields: [productId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@index([tenantId, productId])
+  @@index([tenantId, warehouseId])
+  @@map("stock_movements")
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  TRANSFER
+}
+
+// ============================================================================
+// BUSINESS: Sales (Quotations → Sales Orders)
+// ============================================================================
+
+model Quotation {
+  id            String          @id @default(uuid())
+  tenantId      String          @map("tenant_id")
+  number        String
+  contactId     String          @map("contact_id")
+  userId        String          @map("user_id")
+  status        QuotationStatus @default(DRAFT)
+  currencyCode  String          @default("EUR") @map("currency_code")
+  exchangeRate  Decimal         @default(1) @map("exchange_rate") @db.Decimal(15, 6)
+  subtotal      Decimal         @default(0) @db.Decimal(15, 4)
+  taxTotal      Decimal         @default(0) @map("tax_total") @db.Decimal(15, 4)
+  total         Decimal         @default(0) @db.Decimal(15, 4)
+  notes         String?
+  validUntil    DateTime?       @map("valid_until")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact     Contact         @relation(fields: [contactId], references: [id])
+  user        User            @relation(fields: [userId], references: [id])
+  lines       QuotationLine[]
+  salesOrders SalesOrder[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@map("quotations")
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+model QuotationLine {
+  id          String  @id @default(uuid())
+  quotationId String  @map("quotation_id")
+  productId   String  @map("product_id")
+  description String?
+  quantity    Decimal @db.Decimal(15, 4)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(15, 4)
+  discount    Decimal @default(0) @db.Decimal(5, 2)
+  taxRate     Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  lineTotal   Decimal @default(0) @map("line_total") @db.Decimal(15, 4)
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@map("quotation_lines")
+}
+
+model SalesOrder {
+  id            String           @id @default(uuid())
+  tenantId      String           @map("tenant_id")
+  number        String
+  quotationId   String?          @map("quotation_id")
+  contactId     String           @map("contact_id")
+  userId        String           @map("user_id")
+  status        SalesOrderStatus @default(DRAFT)
+  currencyCode  String           @default("EUR") @map("currency_code")
+  exchangeRate  Decimal          @default(1) @map("exchange_rate") @db.Decimal(15, 6)
+  subtotal      Decimal          @default(0) @db.Decimal(15, 4)
+  taxTotal      Decimal          @default(0) @map("tax_total") @db.Decimal(15, 4)
+  total         Decimal          @default(0) @db.Decimal(15, 4)
+  notes         String?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quotation Quotation?       @relation(fields: [quotationId], references: [id])
+  contact   Contact          @relation(fields: [contactId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
+  lines     SalesOrderLine[]
+  invoices  Invoice[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@map("sales_orders")
+}
+
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model SalesOrderLine {
+  id           String  @id @default(uuid())
+  salesOrderId String  @map("sales_order_id")
+  productId    String  @map("product_id")
+  description  String?
+  quantity     Decimal @db.Decimal(15, 4)
+  unitPrice    Decimal @map("unit_price") @db.Decimal(15, 4)
+  discount     Decimal @default(0) @db.Decimal(5, 2)
+  taxRate      Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  lineTotal    Decimal @default(0) @map("line_total") @db.Decimal(15, 4)
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@map("sales_order_lines")
+}
+
+// ============================================================================
+// BUSINESS: Purchasing
+// ============================================================================
+
+model PurchaseOrder {
+  id            String              @id @default(uuid())
+  tenantId      String              @map("tenant_id")
+  number        String
+  contactId     String              @map("contact_id")
+  status        PurchaseOrderStatus @default(DRAFT)
+  currencyCode  String              @default("EUR") @map("currency_code")
+  exchangeRate  Decimal             @default(1) @map("exchange_rate") @db.Decimal(15, 6)
+  subtotal      Decimal             @default(0) @db.Decimal(15, 4)
+  taxTotal      Decimal             @default(0) @map("tax_total") @db.Decimal(15, 4)
+  total         Decimal             @default(0) @db.Decimal(15, 4)
+  notes         String?
+  expectedDate  DateTime?           @map("expected_date")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact  Contact             @relation(fields: [contactId], references: [id])
+  lines    PurchaseOrderLine[]
+  invoices Invoice[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@map("purchase_orders")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrderLine {
+  id              String  @id @default(uuid())
+  purchaseOrderId String  @map("purchase_order_id")
+  productId       String  @map("product_id")
+  description     String?
+  quantity        Decimal @db.Decimal(15, 4)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(15, 4)
+  taxRate         Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  lineTotal       Decimal @default(0) @map("line_total") @db.Decimal(15, 4)
+  receivedQty     Decimal @default(0) @map("received_qty") @db.Decimal(15, 4)
+  sortOrder       Int     @default(0) @map("sort_order")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_lines")
+}
+
+// ============================================================================
+// FINANCIAL: Invoicing
+// ============================================================================
+
+model Invoice {
+  id              String        @id @default(uuid())
+  tenantId        String        @map("tenant_id")
+  number          String
+  type            InvoiceType
+  contactId       String        @map("contact_id")
+  salesOrderId    String?       @map("sales_order_id")
+  purchaseOrderId String?       @map("purchase_order_id")
+  status          InvoiceStatus @default(DRAFT)
+  currencyCode    String        @default("EUR") @map("currency_code")
+  exchangeRate    Decimal       @default(1) @map("exchange_rate") @db.Decimal(15, 6)
+  issueDate       DateTime      @default(now()) @map("issue_date")
+  dueDate         DateTime      @map("due_date")
+  subtotal        Decimal       @default(0) @db.Decimal(15, 4)
+  taxTotal        Decimal       @default(0) @map("tax_total") @db.Decimal(15, 4)
+  total           Decimal       @default(0) @db.Decimal(15, 4)
+  amountPaid      Decimal       @default(0) @map("amount_paid") @db.Decimal(15, 4)
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact       Contact         @relation(fields: [contactId], references: [id])
+  salesOrder    SalesOrder?     @relation(fields: [salesOrderId], references: [id])
+  purchaseOrder PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id])
+  lines         InvoiceLine[]
+  payments      Payment[]
+  journalEntries JournalEntry[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+  @@map("invoices")
+}
+
+enum InvoiceType {
+  SALES
+  PURCHASE
+  CREDIT_NOTE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceLine {
+  id          String  @id @default(uuid())
+  invoiceId   String  @map("invoice_id")
+  productId   String  @map("product_id")
+  description String?
+  quantity    Decimal @db.Decimal(15, 4)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(15, 4)
+  discount    Decimal @default(0) @db.Decimal(5, 2)
+  taxRate     Decimal @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount   Decimal @default(0) @map("tax_amount") @db.Decimal(15, 4)
+  lineTotal   Decimal @default(0) @map("line_total") @db.Decimal(15, 4)
+  accountId   String? @map("account_id")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  invoice Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+  account ChartOfAccount? @relation(fields: [accountId], references: [id])
+
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  tenantId     String        @map("tenant_id")
+  invoiceId    String        @map("invoice_id")
+  amount       Decimal       @db.Decimal(15, 4)
+  currencyCode String        @default("EUR") @map("currency_code")
+  method       PaymentMethod
+  reference    String?
+  paidAt       DateTime      @default(now()) @map("paid_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([tenantId])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CHECK
+  CREDIT_CARD
+  OTHER
+}
+
+// ============================================================================
+// FINANCIAL: Accounting (Double-Entry)
+// ============================================================================
+
+model ChartOfAccount {
+  id          String      @id @default(uuid())
+  tenantId    String      @map("tenant_id")
+  code        String
+  name        String
+  type        AccountType
+  parentId    String?     @map("parent_id")
+  isActive    Boolean     @default(true) @map("is_active")
+  description String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent       ChartOfAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children     ChartOfAccount[]   @relation("AccountHierarchy")
+  journalLines JournalEntryLine[]
+  invoiceLines InvoiceLine[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+  @@map("chart_of_accounts")
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+model JournalEntry {
+  id          String             @id @default(uuid())
+  tenantId    String             @map("tenant_id")
+  number      String
+  date        DateTime
+  description String
+  reference   String?
+  referenceId String?            @map("reference_id")
+  invoiceId   String?            @map("invoice_id")
+  status      JournalEntryStatus @default(DRAFT)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice?           @relation(fields: [invoiceId], references: [id])
+  lines   JournalEntryLine[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, date])
+  @@map("journal_entries")
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+model JournalEntryLine {
+  id             String  @id @default(uuid())
+  journalEntryId String  @map("journal_entry_id")
+  accountId      String  @map("account_id")
+  debit          Decimal @default(0) @db.Decimal(15, 4)
+  credit         Decimal @default(0) @db.Decimal(15, 4)
+  description    String?
+
+  journalEntry JournalEntry   @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@map("journal_entry_lines")
+}
+
+// ============================================================================
+// LEGAL: Tax & Currency Configuration
+// ============================================================================
+
+model TaxRule {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  name         String
+  rate         Decimal  @db.Decimal(5, 2)
+  countryCode  String   @map("country_code")
+  type         TaxType  @default(VAT)
+  isDefault    Boolean  @default(false) @map("is_default")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@index([tenantId, countryCode])
+  @@map("tax_rules")
+}
+
+enum TaxType {
+  VAT
+  GST
+  SALES_TAX
+  WITHHOLDING
+  EXEMPT
+}
+
+model TenantCurrency {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  code         String
+  name         String
+  symbol       String
+  exchangeRate Decimal  @default(1) @map("exchange_rate") @db.Decimal(15, 6)
+  isBase       Boolean  @default(false) @map("is_base")
+  isActive     Boolean  @default(true) @map("is_active")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@map("tenant_currencies")
+}
+
+// ============================================================================
+// Sequence Generator (for document numbers)
+// ============================================================================
+
+model Sequence {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  type     String
+  prefix   String
+  current  Int    @default(0)
+  padding  Int    @default(5)
+
+  @@unique([tenantId, type])
+  @@map("sequences")
+}
