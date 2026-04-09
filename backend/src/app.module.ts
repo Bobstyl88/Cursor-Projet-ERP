@@ -16,6 +16,17 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { UserModule } from './modules/user/user.module';
 import { RoleModule } from './modules/role/role.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { ContactModule } from './modules/contact/contact.module';
+import { ProductModule } from './modules/product/product.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { SalesModule } from './modules/sales/sales.module';
+import { PurchasingModule } from './modules/purchasing/purchasing.module';
+import { InvoicingModule } from './modules/invoicing/invoicing.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
+import { CurrencyModule } from './modules/currency/currency.module';
+import { LegalModule } from './modules/legal/legal.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
+import { QueueModule } from './modules/queue/queue.module';
 
 @Module({
   imports: [
@@ -37,6 +48,17 @@ import { AuditModule } from './modules/audit/audit.module';
     UserModule,
     RoleModule,
     AuditModule,
+    ContactModule,
+    ProductModule,
+    InventoryModule,
+    SalesModule,
+    PurchasingModule,
+    InvoicingModule,
+    AccountingModule,
+    CurrencyModule,
+    LegalModule,
+    ReportingModule,
+    QueueModule,
   ],
   providers: [
     {
