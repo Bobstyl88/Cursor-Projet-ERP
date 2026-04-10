@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { PaginationParams, PaginatedResult } from '../../common/interfaces/pagination.interface';
+import { safePagination } from '../../common/utils/pagination.util';
 
 @Injectable()
 export class AuditService {
@@ -24,8 +25,8 @@ export class AuditService {
     tenantId: string,
     params: PaginationParams & { entity?: string; entityId?: string },
   ): Promise<PaginatedResult<any>> {
-    const { page = 1, limit = 50, entity, entityId } = params;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = safePagination({ ...params, limit: params.limit || 50 });
+    const { entity, entityId } = params;
 
     const where: any = { tenantId };
     if (entity) where.entity = entity;

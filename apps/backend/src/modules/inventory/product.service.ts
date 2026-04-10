@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
 import { PaginationParams, PaginatedResult } from '../../common/interfaces/pagination.interface';
+import { safePagination } from '../../common/utils/pagination.util';
 
 @Injectable()
 export class ProductService {
@@ -14,8 +15,9 @@ export class ProductService {
     tenantId: string,
     params: PaginationParams & { type?: string },
   ): Promise<PaginatedResult<any>> {
-    const { page = 1, limit = 20, search, sortBy = 'name', sortOrder = 'asc', type } = params;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip, search, sortOrder } = safePagination({ ...params, sortBy: params.sortBy || 'name' });
+    const sortBy = params.sortBy || 'name';
+    const { type } = params;
 
     const where: any = { tenantId };
     if (type) where.type = type;

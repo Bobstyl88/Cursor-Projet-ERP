@@ -1,8 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import helmet from 'helmet';
-import compression from 'compression';
+/* eslint-disable @typescript-eslint/no-require-imports */
+const helmet = require('helmet');
+const compression = require('compression');
 import { AppModule } from './app.module';
 
 async function bootstrap() {

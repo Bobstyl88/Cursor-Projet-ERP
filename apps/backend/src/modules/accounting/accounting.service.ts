@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../core/audit/audit.service';
 import { SequenceService } from '../../common/utils/sequence.service';
 import { PaginationParams, PaginatedResult } from '../../common/interfaces/pagination.interface';
+import { safePagination } from '../../common/utils/pagination.util';
 
 @Injectable()
 export class AccountingService {
@@ -55,8 +56,9 @@ export class AccountingService {
     tenantId: string,
     params: PaginationParams & { status?: string },
   ): Promise<PaginatedResult<any>> {
-    const { page = 1, limit = 20, search, sortBy = 'date', sortOrder = 'desc', status } = params;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip, search, sortOrder } = safePagination({ ...params, sortBy: params.sortBy || 'date' });
+    const sortBy = params.sortBy || 'date';
+    const { status } = params;
 
     const where: any = { tenantId };
     if (status) where.status = status;

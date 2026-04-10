@@ -9,6 +9,7 @@ import {
   PaginationParams,
   PaginatedResult,
 } from '../../common/interfaces/pagination.interface';
+import { safePagination } from '../../common/utils/pagination.util';
 
 @Injectable()
 export class UserService {
@@ -18,8 +19,7 @@ export class UserService {
     tenantId: string,
     params: PaginationParams,
   ): Promise<PaginatedResult<any>> {
-    const { page = 1, limit = 20, search, sortBy = 'createdAt', sortOrder = 'desc' } = params;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip, search, sortBy, sortOrder } = safePagination(params);
 
     const where: any = { tenantId };
     if (search) {

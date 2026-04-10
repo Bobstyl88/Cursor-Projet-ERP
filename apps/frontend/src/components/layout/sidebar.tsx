@@ -16,8 +16,17 @@ import {
   Users,
   DollarSign,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const navigation = [
+type NavLink = { name: string; href: string; icon: LucideIcon };
+type NavGroup = { name: string; items: NavLink[] };
+type NavItem = NavLink | NavGroup;
+
+function isNavGroup(item: NavItem): item is NavGroup {
+  return 'items' in item;
+}
+
+const navigation: NavItem[] = [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -81,7 +90,7 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navigation.map((item) => {
-          if ('items' in item) {
+          if (isNavGroup(item)) {
             return (
               <div key={item.name} className="pt-4 first:pt-0">
                 <p className="px-3 text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
@@ -108,10 +117,11 @@ export function Sidebar() {
             );
           }
 
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
-              href={item.href!}
+              href={item.href}
               className={cn(
                 'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 pathname === item.href
@@ -119,7 +129,7 @@ export function Sidebar() {
                   : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
               )}
             >
-              <item.icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-4 w-4 shrink-0" />
               {item.name}
             </Link>
           );

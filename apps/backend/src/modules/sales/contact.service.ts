@@ -5,6 +5,7 @@ import {
   PaginationParams,
   PaginatedResult,
 } from '../../common/interfaces/pagination.interface';
+import { safePagination } from '../../common/utils/pagination.util';
 import { ContactType } from '@prisma/client';
 
 @Injectable()
@@ -18,15 +19,8 @@ export class ContactService {
     tenantId: string,
     params: PaginationParams & { type?: ContactType },
   ): Promise<PaginatedResult<any>> {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-      type,
-    } = params;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip, search, sortBy, sortOrder } = safePagination(params);
+    const { type } = params;
 
     const where: any = { tenantId };
     if (type) where.type = type;
