@@ -19,6 +19,9 @@
     "db:generate": "npm run db:generate -w apps/backend",
     "db:migrate": "npm run db:migrate -w apps/backend",
     "db:seed": "npm run db:seed -w apps/backend",
+    "setup": "bash scripts/setup.sh",
+    "start": "bash scripts/start.sh",
+    "test:flow": "bash scripts/test-flow.sh",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:build": "docker compose build"

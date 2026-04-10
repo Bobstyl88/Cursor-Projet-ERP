@@ -112,10 +112,10 @@ export class InvoiceService {
       throw new BadRequestException(`Cannot record payment for ${invoice.status} invoice`);
     }
 
-    const totalPaid = Number(invoice.amountPaid) + data.amount;
-    const invoiceTotal = Number(invoice.total);
+    const totalPaid = Math.round((Number(invoice.amountPaid) + data.amount) * 100) / 100;
+    const invoiceTotal = Math.round(Number(invoice.total) * 100) / 100;
 
-    if (totalPaid > invoiceTotal) {
+    if (totalPaid > invoiceTotal + 0.01) {
       throw new BadRequestException('Payment exceeds invoice total');
     }
 
@@ -133,7 +133,7 @@ export class InvoiceService {
       });
 
       const newStatus: InvoiceStatus =
-        totalPaid >= invoiceTotal ? 'PAID' : 'PARTIALLY_PAID';
+        totalPaid >= invoiceTotal - 0.01 ? 'PAID' : 'PARTIALLY_PAID';
 
       await tx.invoice.update({
         where: { id: invoiceId },
